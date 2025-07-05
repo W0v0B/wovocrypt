@@ -5,6 +5,11 @@ edition = "2024"
 
 [features]
 default = ["std"]
-std = []
+std = ["alloc"]
+alloc = []
 
 [dependencies]
+zeroize = { version = "1.8.1", features = ["derive"], default-features = false }
+
+[dev-dependencies]
+hex = "0.4.3"
