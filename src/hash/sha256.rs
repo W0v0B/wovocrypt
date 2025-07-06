@@ -71,19 +71,14 @@ impl Sha256 {
         0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
     ];
 
-    fn process_block(&mut self, block: &[u8; 64])
+    fn process_block(&mut self, block: &[u8; Self::BLOCK_SIZE])
     {
         let mut w: [u32; 64] = [0; 64];
 
         // block in big-endian for w first 16 byte.
         for t in 0..16 {
             let start = t * 4;
-            w[t] = u32::from_be_bytes([
-                block[start],
-                block[start + 1],
-                block[start + 2],
-                block[start + 3]
-            ])
+            w[t] = u32::from_be_bytes(block[start..start + 4].try_into().unwrap());
         }
         // next 48 bytes
         // σ₀(x) = ROTR⁷(x) ⊕ ROTR¹⁸(x) ⊕ SHR³(x)
@@ -291,11 +286,13 @@ mod test {
         let data1 = vec![1u8; 30];
         hasher.update(&data1);
         assert_eq!(hasher.buffer[..30], data1[..]);
+        assert_eq!(hasher.state, H0);
         
         // Add 40 more bytes (total 70, should trigger block processing)
         let data2 = vec![2u8; 40];
         hasher.update(&data2);
         assert_eq!(hasher.buffer[..6], vec![2u8; 6][..]);
+        assert_ne!(hasher.state, H0);
     }
 
     #[test]
