@@ -2,51 +2,51 @@ use crate::hash::Hasher;
 use zeroize::Zeroize;
 
 const H0: [u32; 8] = [
-    0x6a09e667, 0xbb67ae85,
-    0x3c6ef372, 0xa54ff53a,
-    0x510e527f, 0x9b05688c,
-    0x1f83d9ab, 0x5be0cd19
+    0xc1059ed8, 0x367cd507,
+    0x3070dd17, 0xf70e5939,
+    0xffc00b31, 0x68581511,
+    0x64f98fa7, 0xbefa4fa4
 ];
 
 #[derive(Clone, Default, Zeroize)]
 #[zeroize(drop)]
-pub struct Sha256Output([u8; 32]);
+pub struct Sha224Output([u8; 28]);
 
-impl AsRef<[u8]> for Sha256Output {
+impl AsRef<[u8]> for Sha224Output {
     fn as_ref(&self) -> &[u8] {
         &self.0
     }
 }
 
-impl AsMut<[u8]> for Sha256Output {
+impl AsMut<[u8]> for Sha224Output {
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.0
     }
 }
 
-impl From<[u8; 32]> for Sha256Output {
-    fn from(array: [u8; 32]) -> Self {
+impl From<[u8; 28]> for Sha224Output {
+    fn from(array: [u8; 28]) -> Self {
         Self(array)
     }
 }
 
-impl From<Sha256Output> for [u8; 32] {
-    fn from(output: Sha256Output) -> Self {
+impl From<Sha224Output> for [u8; 28] {
+    fn from(output: Sha224Output) -> [u8; 28] {
         output.0
     }
 }
 
 #[derive(Clone, Zeroize)]
 #[zeroize(drop)]
-pub struct Sha256 {
+pub struct Sha224 {
     state: [u32; 8],
     length: u64,
     buffer: [u8; 64]
 }
 
-impl Default for Sha256 {
+impl Default for Sha224 {
     fn default() -> Self {
-        Sha256 {
+        Sha224 {
             state: H0,
             length: 0,
             buffer: [0; 64]
@@ -54,7 +54,7 @@ impl Default for Sha256 {
     }
 }
 
-impl Sha256 {
+impl Sha224 {
     pub const BLOCK_SIZE: usize = 64;
 
     const K: [u32; 64] = [
@@ -71,6 +71,7 @@ impl Sha256 {
         0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
     ];
 
+    // Same as SHA256
     fn process_block(&mut self, block: &[u8; 64])
     {
         let mut w: [u32; 64] = [0; 64];
@@ -153,9 +154,9 @@ impl Sha256 {
     }
 }
 
-impl Hasher for Sha256 {
-    const OUTPUT_SIZE: usize = 32;
-    type Output = Sha256Output;
+impl Hasher for Sha224 {
+    const OUTPUT_SIZE: usize = 28;
+    type Output = Sha224Output;
 
     fn update(&mut self, input: &[u8]) {
         let buffer_pos = (self.length % Self::BLOCK_SIZE as u64) as usize;
@@ -224,7 +225,7 @@ impl Hasher for Sha256 {
             let bytes = word.to_be_bytes();
             result[i * 4..(i + 1) * 4].copy_from_slice(&bytes);
         }
-        Sha256Output(result)
+        Sha224Output(result[..28].try_into().unwrap())
     }
 
     fn reset(&mut self) {
@@ -238,22 +239,22 @@ mod test {
 
     #[test]
     fn test_sha256_output_conversions() {
-        let array = [1u8; 32];
-        let output = Sha256Output::from(array);
-        let back_to_array: [u8; 32] = output.into();
+        let array = [1u8; 28];
+        let output = Sha224Output::from(array);
+        let back_to_array: [u8; 28] = output.into();
         assert_eq!(array, back_to_array);
     }
 
     #[test]
     fn test_sha256_output_as_ref_mut() {
-        let mut output = Sha256Output::default();
+        let mut output = Sha224Output::default();
         output.as_mut()[0] = 42;
         assert_eq!(output.as_ref()[0], 42);
     }
 
     #[test]
     fn test_sha256_initial_state() {
-        let hasher = Sha256::default();
+        let hasher = Sha224::default();
         assert_eq!(hasher.state, H0);
         assert_eq!(hasher.length, 0);
         assert_eq!(hasher.buffer, [0u8; 64]);
@@ -261,7 +262,7 @@ mod test {
 
     #[test]
     fn test_single_block_processing() {
-        let mut hasher = Sha256::default();
+        let mut hasher = Sha224::default();
         let mut block = [0u8; 64];
         block[0] = 0x80;
         hasher.process_block(&block);
@@ -272,7 +273,7 @@ mod test {
 
     #[test]
     fn test_length_tracking() {
-        let mut hasher = Sha256::default();
+        let mut hasher = Sha224::default();
         
         hasher.update(b"abc");
         assert_eq!(hasher.length, 3);
@@ -287,7 +288,7 @@ mod test {
     #[cfg(feature = "std")]
     #[test]
     fn test_buffer_management() {
-        let mut hasher = Sha256::default();
+        let mut hasher = Sha224::default();
         let data1 = vec![1u8; 30];
         hasher.update(&data1);
         assert_eq!(hasher.buffer[..30], data1[..]);
@@ -300,7 +301,7 @@ mod test {
 
     #[test]
     fn test_reset_functionality() {
-        let mut hasher = Sha256::default();
+        let mut hasher = Sha224::default();
         hasher.update(b"secret");
         
         // Clone to test zeroize
@@ -308,7 +309,7 @@ mod test {
         hasher_clone.reset();
         
         // After zeroizing, should be back to default state
-        let default_hasher = Sha256::default();
+        let default_hasher = Sha224::default();
         assert_eq!(hasher_clone.state, default_hasher.state);
         assert_eq!(hasher_clone.length, default_hasher.length);
         assert_eq!(hasher_clone.buffer, default_hasher.buffer);
@@ -316,15 +317,15 @@ mod test {
 
     #[test]
     fn test_output_zeroize() {
-        let mut output = Sha256Output::from([42u8; 32]);
+        let mut output = Sha224Output::from([42u8; 28]);
         output.zeroize();
-        assert_eq!(output.as_ref(), &[0u8; 32]);
+        assert_eq!(output.as_ref(), &[0u8; 28]);
     }
 
     #[cfg(feature = "std")]
     #[test]
     fn test_large_length_handling() {
-        let mut hasher = Sha256::default();
+        let mut hasher = Sha224::default();
         
         // Test with large input that could cause overflow
         let large_data = vec![0u8; 1000];
@@ -339,6 +340,6 @@ mod test {
     
     #[test]
     fn test_block_size_constant() {
-        assert_eq!(Sha256::BLOCK_SIZE, 64);
+        assert_eq!(Sha224::BLOCK_SIZE, 64);
     }
 }

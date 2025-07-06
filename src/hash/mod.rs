@@ -4,6 +4,7 @@ use zeroize::Zeroize;
 use alloc::vec::Vec;
 
 pub mod sha256;
+pub mod sha224;
 
 pub trait Hasher: Clone + Default + Zeroize {
     const OUTPUT_SIZE: usize;
