@@ -5,7 +5,7 @@ pub fn stress_test_hasher<H: wovocrypt::hash::Hasher>(iterations: usize) {
         let data = format!("test data {}", i);
         hasher.update(data.as_bytes());
         if i % 100 == 0 {
-            let _ = hasher.finish_and_reset();
+            let _ = hasher.finalize_and_reset();
         }
     }
 }
@@ -20,7 +20,7 @@ pub fn stress_test_hasher<H: wovocrypt::hash::Hasher>(iterations: usize) {
         let data = format!("test data {}", i);
         hasher.update(data.as_bytes());
         if i % 100 == 0 {
-            let _ = hasher.finish_and_reset();
+            let _ = hasher.finalize_and_reset();
         }
     }
 }
@@ -37,7 +37,7 @@ pub fn stress_test_hasher<H: wovocrypt::hash::Hasher>(iterations: usize) {
         };
         hasher.update(data);
         if i % 100 == 0 {
-            let _ = hasher.finish_and_reset();
+            let _ = hasher.finalize_and_reset();
         }
     }
 }

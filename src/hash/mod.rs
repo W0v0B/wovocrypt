@@ -3,9 +3,16 @@ use zeroize::Zeroize;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
+#[cfg(feature = "sha224")]
 pub mod sha224;
+
+#[cfg(feature = "sha256")]
 pub mod sha256;
+
+#[cfg(feature = "sha384")]
 pub mod sha384;
+
+#[cfg(feature = "sha512")]
 pub mod sha512;
 
 pub trait Hasher: Clone + Default + Zeroize {
@@ -23,13 +30,13 @@ pub trait Hasher: Clone + Default + Zeroize {
         Self::OUTPUT_SIZE
     }
 
-    fn hash(input: &[u8]) -> Self::Output where Self: Sized {
+    fn compute(input: &[u8]) -> Self::Output where Self: Sized {
         let mut hasher = Self::default();
         hasher.update(input);
         hasher.finalize()
     }
 
-    fn finish_and_reset(&mut self) -> Self::Output {
+    fn finalize_and_reset(&mut self) -> Self::Output {
         let clone = (*self).clone();
         let result = clone.finalize();
         self.reset();
@@ -42,7 +49,23 @@ pub trait Hasher: Clone + Default + Zeroize {
     }
 
     #[cfg(feature = "alloc")]
-    fn finish_and_reset_vec(&mut self) -> Vec<u8> {
-        self.finish_and_reset().as_ref().to_vec()
+    fn finalize_and_reset_vec(&mut self) -> Vec<u8> {
+        self.finalize_and_reset().as_ref().to_vec()
     }
+}
+
+pub mod prelude {
+    pub use super::Hasher;
+
+    #[cfg(feature = "sha224")]
+    pub use super::sha224::Sha224;
+
+    #[cfg(feature = "sha256")]
+    pub use super::sha256::Sha256;
+
+    #[cfg(feature = "sha384")]
+    pub use super::sha384::Sha384;
+
+    #[cfg(feature = "sha512")]
+    pub use super::sha512::Sha512;
 }

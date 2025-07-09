@@ -4,9 +4,23 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-default = ["std"]
+default = ["std", "all-alg"]
+
+# --- std/alloc/all-alg ---
 std = ["alloc"]
 alloc = []
+all-alg = ["all-hash", "all-mac"]
+
+# --- Hash ---
+all-hash = ["sha224", "sha256", "sha384", "sha512"]
+sha224 = []
+sha256 = []
+sha384 = []
+sha512 = []
+
+# --- Mac ---
+all-mac = ["hmac"]
+hmac = []
 
 [dependencies]
 zeroize = { version = "1.8.1", features = ["derive"], default-features = false }

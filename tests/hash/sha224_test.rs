@@ -1,8 +1,7 @@
-use wovocrypt::hash::{Hasher, sha224::Sha224};
+use wovocrypt::hash::{Hasher, prelude::Sha224};
 
-mod common;
-use common::HashGoldData;
-use common::utils::{stress_test_hasher};
+use crate::common::{HashGoldData, assert_hash_eq};
+use crate::common::utils::{stress_test_hasher};
 
 const SHA224_GOLD_DATA: &[HashGoldData] = &[
     HashGoldData {
@@ -41,7 +40,7 @@ fn test_sha224_gold_data() {
 #[test]
 fn test_sha224_million_a() {
     let message = vec![b'a'; 1000000];
-    let result = Sha224::hash(&message);
+    let result = Sha224::compute(&message);
     let expected = "20794655980c91d8bbb4c1ea97618a4bf03f42581948b2ee4ee7ad67";
     assert_eq!(hex::encode(result.as_ref()), expected);
 }
@@ -60,7 +59,7 @@ fn test_sha224_multi_update() {
 #[test]
 fn test_sha224_multiple_blocks() {
     let message = vec![b'x'; 200];
-    let result = Sha224::hash(&message);
+    let result = Sha224::compute(&message);
     
     let mut hasher = Sha224::default();
     hasher.update(&message[..64]);
@@ -74,11 +73,11 @@ fn test_sha224_multiple_blocks() {
 #[cfg(feature = "alloc")]
 #[test]
 fn test_sha224_vec_methods() {
-    let result_vec = Sha224::hash(b"abc").as_ref().to_vec();
+    let result_vec = Sha224::compute(b"abc").as_ref().to_vec();
     let mut hasher = Sha224::default();
     hasher.update(b"abc");
     let finalize_vec = hasher.clone().finalize_vec();
-    let reset_vec = hasher.finish_and_reset_vec();
+    let reset_vec = hasher.finalize_and_reset_vec();
     
     assert_eq!(result_vec, finalize_vec);
     assert_eq!(result_vec, reset_vec);

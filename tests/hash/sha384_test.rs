@@ -1,8 +1,7 @@
-use wovocrypt::hash::{Hasher, sha384::Sha384};
+use wovocrypt::hash::{Hasher, prelude::Sha384};
 
-mod common;
-use common::HashGoldData;
-use common::utils::{stress_test_hasher};
+use crate::common::{HashGoldData, assert_hash_eq};
+use crate::common::utils::{stress_test_hasher};
 
 const SHA384_GOLD_DATA: &[HashGoldData] = &[
     HashGoldData {
@@ -41,7 +40,7 @@ fn test_sha512_gold_data() {
 #[test]
 fn test_sha512_million_a() {
     let message = vec![b'a'; 1000000];
-    let result = Sha384::hash(&message);
+    let result = Sha384::compute(&message);
     let expected = "9d0e1809716474cb086e834e310a4a1ced149e9c00f248527972cec5704c2a5b07b8b3dc38ecc4ebae97ddd87f3d8985";
     assert_eq!(hex::encode(result.as_ref()), expected);
 }
@@ -60,7 +59,7 @@ fn test_sha512_multi_update() {
 #[test]
 fn test_sha512_multiple_blocks() {
     let message = vec![b'x'; 200];
-    let result = Sha384::hash(&message);
+    let result = Sha384::compute(&message);
     
     let mut hasher = Sha384::default();
     hasher.update(&message[..64]);
@@ -74,11 +73,11 @@ fn test_sha512_multiple_blocks() {
 #[cfg(feature = "alloc")]
 #[test]
 fn test_sha512_vec_methods() {
-    let result_vec = Sha384::hash(b"abc").as_ref().to_vec();
+    let result_vec = Sha384::compute(b"abc").as_ref().to_vec();
     let mut hasher = Sha384::default();
     hasher.update(b"abc");
     let finalize_vec = hasher.clone().finalize_vec();
-    let reset_vec = hasher.finish_and_reset_vec();
+    let reset_vec = hasher.finalize_and_reset_vec();
     
     assert_eq!(result_vec, finalize_vec);
     assert_eq!(result_vec, reset_vec);
