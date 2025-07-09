@@ -8,3 +8,5 @@ pub use error::Error;
 
 pub mod hash;
 pub use hash::Hasher;
+
+pub mod mac;
