@@ -17,7 +17,7 @@ pub mod sha512;
 
 pub trait Hasher: Clone + Default + Zeroize {
     const OUTPUT_SIZE: usize;
-
+    type HashBlock: AsRef<[u8]> + AsMut<[u8]> + Clone + Default + Zeroize;
     type Output: AsRef<[u8]> + AsMut<[u8]> + Clone + Default + Zeroize;
 
     fn update(&mut self, input: &[u8]);

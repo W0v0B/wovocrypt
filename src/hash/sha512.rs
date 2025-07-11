@@ -11,33 +11,57 @@ const H0: [u64; 8] = [
 #[derive(Clone, Zeroize)]
 #[zeroize(drop)]
 pub struct Sha512Output([u8; 64]);
-
 impl Default for Sha512Output {
     fn default() -> Self {
         Sha512Output([0u8; 64])
     }
 }
-
 impl AsRef<[u8]> for Sha512Output {
     fn as_ref(&self) -> &[u8] {
         &self.0
     }
 }
-
 impl AsMut<[u8]> for Sha512Output {
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.0
     }
 }
-
 impl From<[u8; 64]> for Sha512Output {
     fn from(array: [u8; 64]) -> Self {
         Self(array)
     }
 }
-
 impl From<Sha512Output> for [u8; 64] {
     fn from(output: Sha512Output) -> Self {
+        output.0
+    }
+}
+
+#[derive(Clone, Zeroize)]
+#[zeroize(drop)]
+pub struct Sha512Block([u8; 128]);
+impl Default for Sha512Block {
+    fn default() -> Self {
+        Sha512Block([0u8; 128])
+    }
+}
+impl AsRef<[u8]> for Sha512Block {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+impl AsMut<[u8]> for Sha512Block {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+impl From<[u8; 128]> for Sha512Block {
+    fn from(array: [u8; 128]) -> Self {
+        Self(array)
+    }
+}
+impl From<Sha512Block> for [u8; 128] {
+    fn from(output: Sha512Block) -> [u8; 128] {
         output.0
     }
 }
@@ -164,6 +188,7 @@ impl Sha512 {
 
 impl Hasher for Sha512 {
     const OUTPUT_SIZE: usize = 64;
+    type HashBlock = Sha512Block;
     type Output = Sha512Output;
 
     fn update(&mut self, input: &[u8]) {
@@ -256,6 +281,21 @@ mod test {
     #[test]
     fn test_sha512_output_as_ref_mut() {
         let mut output = Sha512Output::default();
+        output.as_mut()[0] = 42;
+        assert_eq!(output.as_ref()[0], 42);
+    }
+
+    #[test]
+    fn test_sha512_block_conversions() {
+        let array = [1u8; 128];
+        let output = Sha512Block::from(array);
+        let back_to_array: [u8; 128] = output.into();
+        assert_eq!(array, back_to_array);
+    }
+
+    #[test]
+    fn test_sha512_block_as_ref_mut() {
+        let mut output = Sha512Block::default();
         output.as_mut()[0] = 42;
         assert_eq!(output.as_ref()[0], 42);
     }

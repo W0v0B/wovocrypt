@@ -11,27 +11,52 @@ const H0: [u32; 8] = [
 #[derive(Clone, Default, Zeroize)]
 #[zeroize(drop)]
 pub struct Sha256Output([u8; 32]);
-
 impl AsRef<[u8]> for Sha256Output {
     fn as_ref(&self) -> &[u8] {
         &self.0
     }
 }
-
 impl AsMut<[u8]> for Sha256Output {
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.0
     }
 }
-
 impl From<[u8; 32]> for Sha256Output {
     fn from(array: [u8; 32]) -> Self {
         Self(array)
     }
 }
-
 impl From<Sha256Output> for [u8; 32] {
     fn from(output: Sha256Output) -> Self {
+        output.0
+    }
+}
+
+#[derive(Clone, Zeroize)]
+#[zeroize(drop)]
+pub struct Sha256Block([u8; 64]);
+impl Default for Sha256Block {
+    fn default() -> Self {
+        Sha256Block([0u8; 64])
+    }
+}
+impl AsRef<[u8]> for Sha256Block {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+impl AsMut<[u8]> for Sha256Block {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+impl From<[u8; 64]> for Sha256Block {
+    fn from(array: [u8; 64]) -> Self {
+        Self(array)
+    }
+}
+impl From<Sha256Block> for [u8; 64] {
+    fn from(output: Sha256Block) -> [u8; 64] {
         output.0
     }
 }
@@ -150,6 +175,7 @@ impl Sha256 {
 
 impl Hasher for Sha256 {
     const OUTPUT_SIZE: usize = 32;
+    type HashBlock = Sha256Block;
     type Output = Sha256Output;
 
     fn update(&mut self, input: &[u8]) {
@@ -242,6 +268,21 @@ mod test {
     #[test]
     fn test_sha256_output_as_ref_mut() {
         let mut output = Sha256Output::default();
+        output.as_mut()[0] = 42;
+        assert_eq!(output.as_ref()[0], 42);
+    }
+
+    #[test]
+    fn test_sha256_block_conversions() {
+        let array = [1u8; 64];
+        let output = Sha256Block::from(array);
+        let back_to_array: [u8; 64] = output.into();
+        assert_eq!(array, back_to_array);
+    }
+
+    #[test]
+    fn test_sha256_block_as_ref_mut() {
+        let mut output = Sha256Block::default();
         output.as_mut()[0] = 42;
         assert_eq!(output.as_ref()[0], 42);
     }

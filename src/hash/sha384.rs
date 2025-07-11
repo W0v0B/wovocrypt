@@ -11,33 +11,57 @@ const H0: [u64; 8] = [
 #[derive(Clone, Zeroize)]
 #[zeroize(drop)]
 pub struct Sha384Output([u8; 48]);
-
 impl Default for Sha384Output {
     fn default() -> Self {
         Sha384Output([0u8; 48])
     }
 }
-
 impl AsRef<[u8]> for Sha384Output {
     fn as_ref(&self) -> &[u8] {
         &self.0
     }
 }
-
 impl AsMut<[u8]> for Sha384Output {
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.0
     }
 }
-
 impl From<[u8; 48]> for Sha384Output {
     fn from(array: [u8; 48]) -> Self {
         Self(array)
     }
 }
-
 impl From<Sha384Output> for [u8; 48] {
     fn from(output: Sha384Output) -> Self {
+        output.0
+    }
+}
+
+#[derive(Clone, Zeroize)]
+#[zeroize(drop)]
+pub struct Sha384Block([u8; 128]);
+impl Default for Sha384Block {
+    fn default() -> Self {
+        Sha384Block([0u8; 128])
+    }
+}
+impl AsRef<[u8]> for Sha384Block {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+impl AsMut<[u8]> for Sha384Block {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+impl From<[u8; 128]> for Sha384Block {
+    fn from(array: [u8; 128]) -> Self {
+        Self(array)
+    }
+}
+impl From<Sha384Block> for [u8; 128] {
+    fn from(output: Sha384Block) -> [u8; 128] {
         output.0
     }
 }
@@ -165,6 +189,7 @@ impl Sha384 {
 
 impl Hasher for Sha384 {
     const OUTPUT_SIZE: usize = 64;
+    type HashBlock = Sha384Block;
     type Output = Sha384Output;
 
     fn update(&mut self, input: &[u8]) {
@@ -257,6 +282,21 @@ mod test {
     #[test]
     fn test_sha384_output_as_ref_mut() {
         let mut output = Sha384Output::default();
+        output.as_mut()[0] = 42;
+        assert_eq!(output.as_ref()[0], 42);
+    }
+
+    #[test]
+    fn test_sha384_block_conversions() {
+        let array = [1u8; 128];
+        let output = Sha384Block::from(array);
+        let back_to_array: [u8; 128] = output.into();
+        assert_eq!(array, back_to_array);
+    }
+
+    #[test]
+    fn test_sha384_block_as_ref_mut() {
+        let mut output = Sha384Block::default();
         output.as_mut()[0] = 42;
         assert_eq!(output.as_ref()[0], 42);
     }
