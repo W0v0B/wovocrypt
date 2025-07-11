@@ -187,6 +187,7 @@ impl Sha512 {
 }
 
 impl Hasher for Sha512 {
+    const BLOCK_SIZE: usize = 128;
     const OUTPUT_SIZE: usize = 64;
     type HashBlock = Sha512Block;
     type Output = Sha512Output;

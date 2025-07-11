@@ -80,8 +80,6 @@ impl Default for Sha256 {
 }
 
 impl Sha256 {
-    pub const BLOCK_SIZE: usize = 64;
-
     const K: [u32; 64] = [
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
         0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
@@ -174,6 +172,7 @@ impl Sha256 {
 }
 
 impl Hasher for Sha256 {
+    const BLOCK_SIZE: usize = 64;
     const OUTPUT_SIZE: usize = 32;
     type HashBlock = Sha256Block;
     type Output = Sha256Output;

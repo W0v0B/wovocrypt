@@ -188,6 +188,7 @@ impl Sha384 {
 }
 
 impl Hasher for Sha384 {
+    const BLOCK_SIZE: usize = 128;
     const OUTPUT_SIZE: usize = 64;
     type HashBlock = Sha384Block;
     type Output = Sha384Output;

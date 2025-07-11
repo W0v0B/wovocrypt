@@ -6,9 +6,7 @@ use alloc::vec::Vec;
 
 pub trait Mac: Clone + Zeroize {
     const OUTPUT_SIZE: usize;
-
     type Output: AsRef<[u8]> + AsMut<[u8]> + Clone + Default + Zeroize;
-
     type Key: AsRef<[u8]> + ?Sized;
 
     fn new(key: &Self::Key) -> Self;
