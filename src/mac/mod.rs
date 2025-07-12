@@ -1,5 +1,5 @@
 use zeroize::Zeroize;
-pub mod hmac;
+mod hmac;
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
@@ -68,8 +68,19 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 }
 
 pub mod prelude {
+    use crate::hash::prelude::*;
+
     pub use super::Mac;
 
-    #[cfg(feature = "hmac")]
-    pub use super::hmac::Hmac;
+    #[cfg(all(feature = "hmac", feature = "sha224"))]
+    pub type HmacSha224 = super::hmac::Hmac<Sha224>;
+
+    #[cfg(all(feature = "hmac", feature = "sha256"))]
+    pub type HmacSha256 = super::hmac::Hmac<Sha256>;
+
+    #[cfg(all(feature = "hmac", feature = "sha384"))]
+    pub type HmacSha384 = super::hmac::Hmac<Sha384>;
+
+    #[cfg(all(feature = "hmac", feature = "sha512"))]
+    pub type HmacSha512 = super::hmac::Hmac<Sha512>;
 }

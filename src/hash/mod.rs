@@ -4,16 +4,16 @@ use zeroize::Zeroize;
 use alloc::vec::Vec;
 
 #[cfg(feature = "sha224")]
-pub mod sha224;
+mod sha224;
 
 #[cfg(feature = "sha256")]
-pub mod sha256;
+mod sha256;
 
 #[cfg(feature = "sha384")]
-pub mod sha384;
+mod sha384;
 
 #[cfg(feature = "sha512")]
-pub mod sha512;
+mod sha512;
 
 pub trait Hasher: Clone + Default + Zeroize {
     const BLOCK_SIZE: usize;

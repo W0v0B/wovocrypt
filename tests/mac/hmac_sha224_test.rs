@@ -1,5 +1,4 @@
-use wovocrypt::mac::{Mac, prelude::Hmac};
-use wovocrypt::hash::prelude::Sha224;
+use wovocrypt::mac::{Mac, prelude::HmacSha224};
 
 use crate::common::{HmacGoldData, assert_mac_eq};
 use crate::common::utils::{stress_test_mac};
@@ -48,7 +47,7 @@ const HMAC_SHA224_GOLD_DATA: &[HmacGoldData] = &[
 #[test]
 fn test_hmac_sha224_gold_data() {
     for data in HMAC_SHA224_GOLD_DATA {
-        assert_mac_eq!(Hmac<Sha224>, data.key, data.message, data.expected);
+        assert_mac_eq!(HmacSha224, data.key, data.message, data.expected);
     }
 }
 
@@ -56,7 +55,7 @@ fn test_hmac_sha224_gold_data() {
 fn test_hmac_sha224_million_a() {
     let key = &[0xaa; 20];
     let message = vec![b'a'; 1000000];
-    let result = <Hmac<Sha224>>::compute(key, &message);
+    let result = HmacSha224::compute(key, &message);
     let expected_mac_hex = "be99840d8fb88c963c5e917fa65903d2c97af7b298a4d7b8679ee7ae";
     assert_eq!(hex::encode(result.as_ref()), expected_mac_hex);
 }
@@ -64,7 +63,7 @@ fn test_hmac_sha224_million_a() {
 #[test]
 fn test_hmac_sha224_multi_update() {
     let key = b"Jefe";
-    let mut mac = <Hmac<Sha224>>::new(key);
+    let mut mac = HmacSha224::new(key);
     mac.update(b"what do ya");
     mac.update(b" want for ");
     mac.update(b"nothing?");
@@ -77,9 +76,9 @@ fn test_hmac_sha224_multi_update() {
 fn test_hmac_sha224_multiple_blocks() {
     let key = &[0x0b; 20];
     let message = vec![b'x'; 200];
-    let result = <Hmac<Sha224>>::compute(key, &message);
+    let result = HmacSha224::compute(key, &message);
     
-    let mut mac = <Hmac<Sha224>>::new(key);
+    let mut mac = HmacSha224::new(key);
     mac.update(&message[..64]);
     mac.update(&message[64..128]);
     mac.update(&message[128..]);
@@ -91,8 +90,8 @@ fn test_hmac_sha224_multiple_blocks() {
 #[cfg(feature = "alloc")]
 #[test]
 fn test_hmac_sha224_vec_methods() {
-    let result_vec = <Hmac<Sha224>>::compute(b"abc", b"abc").as_ref().to_vec();
-    let mut mac = <Hmac<Sha224>>::new(b"abc");
+    let result_vec = HmacSha224::compute(b"abc", b"abc").as_ref().to_vec();
+    let mut mac = HmacSha224::new(b"abc");
     mac.update(b"abc");
     let finalize_vec = mac.clone().finalize_vec();
     let reset_vec = mac.finalize_and_reset_vec();
@@ -103,5 +102,5 @@ fn test_hmac_sha224_vec_methods() {
 
 #[test]
 fn test_hmac_sha224_stress() {
-    stress_test_mac::<Hmac<Sha224>>(1000);
+    stress_test_mac::<HmacSha224>(1000);
 }

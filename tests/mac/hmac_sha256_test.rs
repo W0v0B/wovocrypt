@@ -1,5 +1,4 @@
-use wovocrypt::mac::{Mac, prelude::Hmac};
-use wovocrypt::hash::prelude::Sha256;
+use wovocrypt::mac::{Mac, prelude::HmacSha256};
 
 use crate::common::{HmacGoldData, assert_mac_eq};
 use crate::common::utils::{stress_test_mac};
@@ -48,7 +47,7 @@ const HMAC_SHA256_GOLD_DATA: &[HmacGoldData] = &[
 #[test]
 fn test_hmac_sha256_gold_data() {
     for data in HMAC_SHA256_GOLD_DATA {
-        assert_mac_eq!(Hmac<Sha256>, data.key, data.message, data.expected);
+        assert_mac_eq!(HmacSha256, data.key, data.message, data.expected);
     }
 }
 
@@ -56,7 +55,7 @@ fn test_hmac_sha256_gold_data() {
 fn test_hmac_sha256_million_a() {
     let key = &[0xaa; 20];
     let message = vec![b'a'; 1000000];
-    let result = <Hmac<Sha256>>::compute(key, &message);
+    let result = HmacSha256::compute(key, &message);
     let expected_mac_hex = "4513f77e2a587bf6de43c649b880128672b9fed1ede351576b06e4e03cbc3aef";
     assert_eq!(hex::encode(result.as_ref()), expected_mac_hex);
 }
@@ -64,7 +63,7 @@ fn test_hmac_sha256_million_a() {
 #[test]
 fn test_hmac_sha256_multi_update() {
     let key = b"Jefe";
-    let mut mac = <Hmac<Sha256>>::new(key);
+    let mut mac = HmacSha256::new(key);
     mac.update(b"what do ya");
     mac.update(b" want for ");
     mac.update(b"nothing?");
@@ -77,9 +76,9 @@ fn test_hmac_sha256_multi_update() {
 fn test_hmac_sha256_multiple_blocks() {
     let key = &[0x0b; 20];
     let message = vec![b'x'; 200];
-    let result = <Hmac<Sha256>>::compute(key, &message);
+    let result = HmacSha256::compute(key, &message);
     
-    let mut mac = <Hmac<Sha256>>::new(key);
+    let mut mac = HmacSha256::new(key);
     mac.update(&message[..64]);
     mac.update(&message[64..128]);
     mac.update(&message[128..]);
@@ -91,8 +90,8 @@ fn test_hmac_sha256_multiple_blocks() {
 #[cfg(feature = "alloc")]
 #[test]
 fn test_hmac_sha256_vec_methods() {
-    let result_vec = <Hmac<Sha256>>::compute(b"abc", b"abc").as_ref().to_vec();
-    let mut mac = <Hmac<Sha256>>::new(b"abc");
+    let result_vec = HmacSha256::compute(b"abc", b"abc").as_ref().to_vec();
+    let mut mac = HmacSha256::new(b"abc");
     mac.update(b"abc");
     let finalize_vec = mac.clone().finalize_vec();
     let reset_vec = mac.finalize_and_reset_vec();
@@ -103,5 +102,5 @@ fn test_hmac_sha256_vec_methods() {
 
 #[test]
 fn test_hmac_sha256_stress() {
-    stress_test_mac::<Hmac<Sha256>>(1000);
+    stress_test_mac::<HmacSha256>(1000);
 }
