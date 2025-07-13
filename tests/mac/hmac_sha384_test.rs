@@ -1,4 +1,4 @@
-use wovocrypt::mac::{Mac, prelude::HmacSha384};
+use wovocrypt::mac::prelude::{Mac, HmacSha384};
 
 use crate::common::{HmacGoldData, assert_mac_eq};
 use crate::common::utils::{stress_test_mac};

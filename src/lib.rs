@@ -10,6 +10,7 @@ pub mod hash;
 pub use hash::Hasher;
 
 pub mod cipher;
+pub use cipher::aes::BlockCipher;
 
 pub mod mac;
 pub use mac::Mac;
