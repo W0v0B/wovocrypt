@@ -1,5 +1,6 @@
 use zeroize::Zeroize;
 use super::BlockCipher;
+use super::consts::{S_BOX, INV_S_BOX, RCON};
 
 #[derive(Clone, Default, Zeroize)]
 #[zeroize(drop)]
