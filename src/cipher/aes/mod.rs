@@ -1,6 +1,7 @@
 use zeroize::Zeroize;
 
 mod consts;
+mod internal;
 mod aes128;
 mod aes192;
 mod aes256;
