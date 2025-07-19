@@ -1,4 +1,5 @@
-use wovocrypt::hash::prelude::{Hasher, Sha224};
+use wovocrypt::hash::Hasher;
+use wovocrypt::hash::prelude::Sha224;
 
 use crate::common::{HashGoldData, assert_hash_eq};
 use crate::common::utils::{stress_test_hasher};

@@ -1,5 +1,5 @@
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Error {
+pub enum SymcError {
     InvalidLength,
     InvalidBufferSize,
 }

@@ -1,7 +1,16 @@
+#[cfg(any(feature = "aes128", feature = "aes192", feature = "aes256"))]
 mod consts;
+
+#[cfg(any(feature = "aes128", feature = "aes192", feature = "aes256"))]
 mod internal;
+
+#[cfg(feature = "aes128")]
 mod aes128;
+
+#[cfg(feature = "aes192")]
 mod aes192;
+
+#[cfg(feature = "aes256")]
 mod aes256;
 
 pub mod prelude {

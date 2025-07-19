@@ -4,13 +4,9 @@
 extern crate alloc;
 
 pub mod error;
-pub use error::Error;
 
 pub mod hash;
-pub use hash::Hasher;
 
 pub mod cipher;
-pub use cipher::BlockCipher;
 
 pub mod mac;
-pub use mac::Mac;

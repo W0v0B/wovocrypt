@@ -56,8 +56,6 @@ pub trait Hasher: Clone + Default + Zeroize {
 }
 
 pub mod prelude {
-    pub use super::Hasher;
-
     #[cfg(feature = "sha224")]
     pub use super::sha224::Sha224;
 
