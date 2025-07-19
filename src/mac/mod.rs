@@ -70,6 +70,7 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 pub mod prelude {
     use crate::hash::prelude::*;
 
+    #[cfg(feature = "all-mac")]
     pub use super::Mac;
 
     #[cfg(all(feature = "hmac", feature = "sha224"))]
