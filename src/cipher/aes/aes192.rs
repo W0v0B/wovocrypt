@@ -1,5 +1,5 @@
 use zeroize::Zeroize;
-use super::BlockCipher;
+use super::super::BlockCipher;
 use super::consts::{S_BOX, RCON};
 use super::internal::{add_round_key, sub_bytes, shift_rows, mix_columns,
     inv_sub_bytes, inv_shift_rows, inv_mix_columns};
