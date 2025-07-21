@@ -28,7 +28,7 @@ impl From<Aes256Key> for [u8; 32] {
     }
 }
 
-#[derive(Zeroize)]
+#[derive(Zeroize, Clone)]
 #[zeroize(drop)]
 pub struct Aes256 {
     expanded_key: [[u8; 4]; 60]

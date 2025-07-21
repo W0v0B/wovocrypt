@@ -5,7 +5,7 @@ pub mod aes;
 
 pub mod mode;
 
-pub trait BlockCipher: Zeroize {
+pub trait BlockCipher: Zeroize + Clone {
     const BLOCK_SIZE: usize;
     const KEY_SIZE: usize;
     type Block: AsRef<[u8]> + AsMut<[u8]> + Clone + Default + Zeroize;

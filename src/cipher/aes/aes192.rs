@@ -28,7 +28,7 @@ impl From<Aes192Key> for [u8; 24] {
     }
 }
 
-#[derive(Zeroize)]
+#[derive(Zeroize, Clone)]
 #[zeroize(drop)]
 pub struct Aes192 {
     expanded_key: [[u8; 4]; 52]
