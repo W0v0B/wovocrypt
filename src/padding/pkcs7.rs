@@ -1,5 +1,3 @@
-use crate::padding;
-
 use super::{Padding, SymcError};
 
 pub struct Pkcs7;

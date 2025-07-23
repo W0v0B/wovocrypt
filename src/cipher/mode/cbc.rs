@@ -1,23 +1,50 @@
+use core::marker::PhantomData;
+
 use crate::cipher::BlockCipher;
+use crate::padding::Padding;
 use super::{SymcDecryptor, SymcEncryptor};
 
-#[derive(Clone)]
-pub struct CbcEncryptor<C: BlockCipher> {
+pub struct CbcEncryptor<C: BlockCipher, P: Padding> {
     cipher: C,
     iv: C::Block,
     buffer: C::Block,
-    buffer_len: usize
+    buffer_len: usize,
+    _phantom: PhantomData<P>
+}
+impl<C: BlockCipher, P: Padding> Clone for CbcEncryptor<C, P>
+where C: Clone, C::Block: Clone {
+    fn clone(&self) -> Self {
+        Self {
+            cipher: self.cipher.clone(),
+            iv: self.iv.clone(),
+            buffer: self.buffer.clone(),
+            buffer_len: self.buffer_len,
+            _phantom: PhantomData
+        }
+    }
 }
 
-#[derive(Clone)]
-pub struct CbcDecryptor<C: BlockCipher> {
+pub struct CbcDecryptor<C: BlockCipher, P: Padding>{
     cipher: C,
     iv: C::Block,
     buffer: C::Block,
-    buffer_len: usize
+    buffer_len: usize,
+    _phantom: PhantomData<P>
+}
+impl<C: BlockCipher, P: Padding> Clone for CbcDecryptor<C, P>
+where C: Clone, C::Block: Clone {
+    fn clone(&self) -> Self {
+        Self {
+            cipher: self.cipher.clone(),
+            iv: self.iv.clone(),
+            buffer: self.buffer.clone(),
+            buffer_len: self.buffer_len,
+            _phantom: PhantomData
+        }
+    }
 }
 
-impl<C: BlockCipher> SymcEncryptor for CbcEncryptor<C> {
+impl<C: BlockCipher, P: Padding> SymcEncryptor for CbcEncryptor<C, P> {
     type Key = C::Key;
     type IV = C::Block;
 
@@ -26,7 +53,8 @@ impl<C: BlockCipher> SymcEncryptor for CbcEncryptor<C> {
             cipher: C::new(key),
             iv: iv.clone(),
             buffer: Default::default(),
-            buffer_len: 0
+            buffer_len: 0,
+            _phantom: PhantomData
         }
     }
 
@@ -85,7 +113,7 @@ impl<C: BlockCipher> SymcEncryptor for CbcEncryptor<C> {
     }
 }
 
-impl<C: BlockCipher> SymcDecryptor for CbcDecryptor<C> {
+impl<C: BlockCipher, P: Padding> SymcDecryptor for CbcDecryptor<C, P> {
     type Key = C::Key;
     type IV = C::Block;
 
@@ -94,7 +122,8 @@ impl<C: BlockCipher> SymcDecryptor for CbcDecryptor<C> {
             cipher: C::new(key),
             iv: iv.clone(),
             buffer: Default::default(),
-            buffer_len: 0
+            buffer_len: 0,
+            _phantom: PhantomData
         }
     }
 
@@ -115,7 +144,7 @@ impl<C: BlockCipher> SymcDecryptor for CbcDecryptor<C> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cipher::aes::prelude::{Aes128, Aes128Key};
+    use crate::{cipher::aes::prelude::{Aes128, Aes128Key}, padding::pkcs7::Pkcs7};
 
     /// Test vector from NIST SP 800-38A, Appendix F.2.1
     const KEY: [u8; 16] = [
@@ -146,7 +175,7 @@ mod tests {
     #[test]
     fn cbc_single_block_update() {
         let key = Aes128Key::from(KEY);
-        let mut encryptor = CbcEncryptor::<Aes128>::new(&key, &IV.into());
+        let mut encryptor = CbcEncryptor::<Aes128, Pkcs7>::new(&key, &IV.into());
         let mut output = [0u8; 16];
         
         let written = encryptor.update(&P1, &mut output).unwrap();
@@ -158,7 +187,7 @@ mod tests {
     #[test]
     fn cbc_multi_block_update() {
         let key = Aes128Key::from(KEY);
-        let mut encryptor = CbcEncryptor::<Aes128>::new(&key, &IV.into());
+        let mut encryptor = CbcEncryptor::<Aes128, Pkcs7>::new(&key, &IV.into());
         
         let plaintext = [P1, P2].concat();
         let expected_ciphertext = [C1, C2].concat();
@@ -173,7 +202,7 @@ mod tests {
     #[test]
     fn cbc_partial_updates() {
         let key = Aes128Key::from(KEY);
-        let mut encryptor = CbcEncryptor::<Aes128>::new(&key, &IV.into());
+        let mut encryptor = CbcEncryptor::<Aes128, Pkcs7>::new(&key, &IV.into());
         let mut output = [0u8; 16];
 
         // First partial update, should write nothing and buffer
@@ -189,7 +218,7 @@ mod tests {
     #[test]
     fn cbc_nist_vector_step_by_step() {
         let key = Aes128Key::from(KEY);
-        let mut encryptor = CbcEncryptor::<Aes128>::new(&key, &IV.into());
+        let mut encryptor = CbcEncryptor::<Aes128, Pkcs7>::new(&key, &IV.into());
         let mut output = [0u8; 32];
 
         // Encrypt the first block

@@ -58,14 +58,4 @@ pub trait SymcDecryptor: Sized + Clone {
 }
 
 pub mod prelude {
-    use crate::cipher::aes::prelude::{Aes128, Aes192, Aes256};
-
-    pub type AesCbc128Encryptor = super::cbc::CbcEncryptor<Aes128>;
-    pub type AesCbc128Decryptor = super::cbc::CbcDecryptor<Aes128>;
-
-    pub type AesCbc192Encryptor = super::cbc::CbcEncryptor<Aes192>;
-    pub type AesCbc192Decryptor = super::cbc::CbcDecryptor<Aes192>;
-
-    pub type AesCbc256Encryptor = super::cbc::CbcEncryptor<Aes256>;
-    pub type AesCbc256Decryptor = super::cbc::CbcDecryptor<Aes256>;
 }
