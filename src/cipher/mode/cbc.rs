@@ -104,7 +104,38 @@ impl<C: BlockCipher, P: Padding> SymcEncryptor for CbcEncryptor<C, P> {
     }
 
     fn finalize(self, output: &mut [u8]) -> Result<usize, crate::error::SymcError> {
-        unimplemented!()
+        if self.buffer_len < C::BLOCK_SIZE {
+            let mut final_blocks: C::Block = Default::default();
+            let padded_len = P::pad(&self.buffer.as_ref()[..self.buffer_len], final_blocks.as_mut(), C::BLOCK_SIZE)?;
+            final_blocks.as_mut().iter_mut()
+                .zip(self.iv.as_ref().iter())
+                .for_each(|(b, p)| *b ^= p);
+            self.cipher.encrypt_block(&mut final_blocks);
+            output[..C::BLOCK_SIZE].copy_from_slice(final_blocks.as_ref());
+
+            Ok(padded_len)
+        } else {
+            let mut final_blocks: C::Block = Default::default();
+            let padded_len = P::pad(&self.buffer.as_ref()[..self.buffer_len], output, C::BLOCK_SIZE)?;
+
+            // first block
+            final_blocks.as_mut().copy_from_slice(&output[..C::BLOCK_SIZE]);
+            final_blocks.as_mut().iter_mut()
+                .zip(self.iv.as_ref().iter())
+                .for_each(|(b, p)| *b ^= p);
+            self.cipher.encrypt_block(&mut final_blocks);
+            output[..C::BLOCK_SIZE].copy_from_slice(final_blocks.as_ref());
+
+            // second block
+            final_blocks.as_mut().copy_from_slice(&output[C::BLOCK_SIZE..(2 * C::BLOCK_SIZE)]);
+            final_blocks.as_mut().iter_mut()
+                .zip(output[..C::BLOCK_SIZE].iter())
+                .for_each(|(b, p)| *b ^= p);
+            self.cipher.encrypt_block(&mut final_blocks);
+            output[C::BLOCK_SIZE..(2 * C::BLOCK_SIZE)].copy_from_slice(final_blocks.as_ref());
+
+            Ok(padded_len)
+        }
     }
     
     fn reset(&mut self, iv: &Self::IV) {
@@ -230,5 +261,77 @@ mod tests {
         let written2 = encryptor.update(&P2, &mut output[16..]).unwrap();
         assert_eq!(written2, 16);
         assert_eq!(&output[16..32], &C2, "Ciphertext of block 2 is incorrect");
+    }
+
+    #[test]
+    fn cbc_finalize_partial_block() {
+        // 测试 finalize 处理不完整块的情况
+        let key = Aes128Key::from(KEY);
+        let mut encryptor = CbcEncryptor::<Aes128, Pkcs7>::new(&key, &C1.into());
+        
+        encryptor.buffer.as_mut()[..10].copy_from_slice(&P2[..10]);
+        encryptor.buffer_len = 10;
+
+        let mut output = [0u8; 16];
+        let written = encryptor.finalize(&mut output).unwrap();
+
+        assert_eq!(written, 16);
+
+        let expected_final_block: [u8; 16] = [
+            0x67, 0x11, 0x4e, 0x5e, 0x43, 0xd8, 0x37, 0x8e,
+            0x2a, 0xf3, 0x29, 0x6f, 0x65, 0x4e, 0x4c, 0xbf
+        ];
+        assert_eq!(&output[..16], &expected_final_block);
+    }
+
+    #[test]
+    fn cbc_finalize_two_blocks() {
+        // 测试 finalize 的 "两个块" 路径 (当 buffer 满了)
+        let key = Aes128Key::from(KEY);
+        let mut encryptor = CbcEncryptor::<Aes128, Pkcs7>::new(&key, &IV.into());
+        encryptor.buffer.as_mut().copy_from_slice(&P1);
+        encryptor.buffer_len = 16;
+        
+        let mut output = [0u8; 32];
+        let written = encryptor.finalize(&mut output).unwrap();
+
+        assert_eq!(written, 32);
+        // The first block should be C1
+        assert_eq!(&output[..16], &C1);
+        // The second block should be a full padding block, chained with C1
+        // We need an expected value for this. Let's calculate it.
+        let mut expected_pad_block = [16u8; 16];
+        expected_pad_block.iter_mut().zip(C1.iter()).for_each(|(b, p)| *b ^= p);
+        let cipher = Aes128::new(&key);
+        cipher.encrypt_block(&mut expected_pad_block);
+        
+        assert_eq!(&output[16..32], &expected_pad_block);
+    }
+
+    #[test]
+    fn cbc_finalize_empty_buffer() {
+        // 测试 finalize 处理空 buffer 的情况 (需要添加一个新块)
+        let key = Aes128Key::from(KEY);
+        let mut encryptor = CbcEncryptor::<Aes128, Pkcs7>::new(&key, &IV.into());
+        
+        let mut output = [0u8; 32];
+        // 1. 先 update 一个完整的块
+        let written1 = encryptor.update(&P1, &mut output).unwrap();
+        assert_eq!(written1, 16);
+        assert_eq!(&output[..16], &C1);
+
+        // 2. 此刻 buffer_len 应该是 0，直接 finalize
+        let written2 = encryptor.finalize(&mut output[16..]).unwrap();
+        assert_eq!(written2, 16); // 应该输出一个完整的填充块
+
+        // 预期结果：一个全是由 0x10 填充的块，与 C1 链接后加密的结果
+        let mut expected_pad_block = [16u8; 16];
+        expected_pad_block.iter_mut()
+            .zip(C1.iter())
+            .for_each(|(b, p)| *b ^= p);
+        let cipher = Aes128::new(&key);
+        cipher.encrypt_block(&mut expected_pad_block);
+        
+        assert_eq!(&output[16..32], &expected_pad_block);
     }
 }
