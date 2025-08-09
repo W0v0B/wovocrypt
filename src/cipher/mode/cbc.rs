@@ -159,7 +159,77 @@ impl<C: BlockCipher, P: Padding> SymcDecryptor for CbcDecryptor<C, P> {
     }
 
     fn update(&mut self, input: &[u8], output: &mut [u8]) -> Result<usize, crate::error::SymcError> {
-        unimplemented!()
+        let block_size = C::BLOCK_SIZE;
+        let mut written = 0;
+
+        if output.len() < (self.buffer_len + input.len()) / block_size * block_size {
+            return Err(crate::error::SymcError::BufferTooSmall);
+        }
+
+        // 计算 self.buffer_len 还剩多少空间
+        let remaining = block_size - self.buffer_len;
+        // 如果 input.len() 不超过 remaining 则直接拷贝进 self.buffer 退出
+        if remaining > input.len() {
+            self.buffer.as_mut()[self.buffer_len..(self.buffer_len + input.len())].copy_from_slice(&input);
+            self.buffer_len += input.len();
+            return Ok(0);
+        }
+
+        // 处理第一个块
+        self.buffer.as_mut()[self.buffer_len..].copy_from_slice(&input[..remaining]);
+        // 保存 iv 值到 output
+        output[..block_size].copy_from_slice(self.iv.as_mut());
+        // 保存这次的加密块作为下次的 iv 值
+        self.iv.as_mut().copy_from_slice(self.buffer.as_mut());
+        self.cipher.decrypt_block(&mut self.buffer);
+        // 原地异或得到明文
+        output[..block_size].iter_mut()
+            .zip(self.buffer.as_ref().iter())
+            .for_each(|(b, p)| *b ^= *p);
+        written += block_size;
+        self.buffer_len = 0;
+
+        // 处理剩余的块
+        let mut chunks = input[remaining..].chunks_exact(block_size);
+
+        let remainder = chunks.remainder();
+        if !remainder.is_empty() {
+            for chunk in &mut chunks {
+                self.buffer.as_mut().copy_from_slice(chunk);
+                // 保存 iv 值到 output
+                output[written..(written + block_size)].copy_from_slice(self.iv.as_mut());
+                // 保存这次的加密块作为下次的 iv 值
+                self.iv.as_mut().copy_from_slice(self.buffer.as_mut());
+                self.cipher.decrypt_block(&mut self.buffer);
+                // 原地异或得到明文
+                output[written..(written + block_size)].iter_mut()
+                    .zip(self.buffer.as_mut().iter())
+                    .for_each(|(b, p)| *b ^= *p);
+                written += block_size;
+            }
+            self.buffer.as_mut()[..remainder.len()].copy_from_slice(remainder);
+            self.buffer_len = remainder.len();
+        } else {
+            let mut chunks = chunks.peekable();
+            while let Some(chunk) = chunks.next() {
+                self.buffer.as_mut().copy_from_slice(chunk);
+                if chunks.peek().is_some() {
+                    // 保存 iv 值到 output
+                    output[written..(written + block_size)].copy_from_slice(self.iv.as_mut());
+                    // 保存这次的加密块作为下次的 iv 值
+                    self.iv.as_mut().copy_from_slice(self.buffer.as_mut());
+                    self.cipher.decrypt_block(&mut self.buffer);
+                    // 原地异或得到明文
+                    output[written..(written + block_size)].iter_mut()
+                        .zip(self.buffer.as_mut().iter())
+                        .for_each(|(b, p)| *b ^= *p);
+                    written += block_size;
+                }
+                self.buffer_len = block_size;
+            }
+        }
+
+        Ok(written)
     }
 
     fn finalize(self, output: &mut [u8]) -> Result<usize, crate::error::SymcError> {
@@ -333,5 +403,114 @@ mod tests {
         cipher.encrypt_block(&mut expected_pad_block);
         
         assert_eq!(&output[16..32], &expected_pad_block);
+    }
+
+    #[test]
+    fn cbc_decrypt_single_block_update() {
+        let key = Aes128Key::from(KEY);
+        let mut decryptor = CbcDecryptor::<Aes128, Pkcs7>::new(&key, &IV.into());
+        let mut output = [0u8; 16];
+        
+        let written = decryptor.update(&C1, &mut output).unwrap();
+        
+        assert_eq!(written, 16);
+        assert_eq!(&output[..written], &P1);
+    }
+
+    #[test]
+    fn cbc_decrypt_partial_updates() {
+        let key = Aes128Key::from(KEY);
+        let mut decryptor = CbcDecryptor::<Aes128, Pkcs7>::new(&key, &IV.into());
+        let mut output = [0u8; 16];
+
+        // First partial update, should write nothing and buffer
+        let written1 = decryptor.update(&C1[..10], &mut output).unwrap();
+        assert_eq!(written1, 0);
+
+        // Second update, completes the first block
+        let written2 = decryptor.update(&C1[10..], &mut output).unwrap();
+        assert_eq!(written2, 16);
+        assert_eq!(&output[..16], &P1);
+    }
+
+    #[test]
+    fn cbc_decrypt_nist_vector_step_by_step() {
+        let key = Aes128Key::from(KEY);
+        let mut decryptor = CbcDecryptor::<Aes128, Pkcs7>::new(&key, &IV.into());
+        let mut output = [0u8; 32];
+
+        // Decrypt the first block
+        let written1 = decryptor.update(&C1, &mut output[..16]).unwrap();
+        assert_eq!(written1, 16);
+        assert_eq!(&output[..16], &P1, "Plaintext of block 1 is incorrect");
+
+        // Decrypt the second block
+        let written2 = decryptor.update(&C2, &mut output[16..]).unwrap();
+        assert_eq!(written2, 16);
+        assert_eq!(&output[16..32], &P2, "Plaintext of block 2 is incorrect");
+    }
+
+    #[test]
+    fn cbc_decrypt_update_processes_intermediate_blocks_only() {
+        // A test to confirm that update processes all but the last block
+        // when the input is block-aligned.
+        let key = Aes128Key::from(KEY);
+        let mut decryptor = CbcDecryptor::<Aes128, Pkcs7>::new(&key, &IV.into());
+        
+        let ciphertext = [C1, C2, C1].concat(); // 3 blocks of input
+        let expected_plaintext = [P1, P2].concat(); // Expect 2 blocks of output
+        let mut output = [0u8; 48];
+
+        let written = decryptor.update(&ciphertext, &mut output).unwrap();
+
+        assert_eq!(written, 32, "Should have processed the first two blocks");
+        assert_eq!(&output[..written], &expected_plaintext, "Plaintext of first two blocks is incorrect");
+        assert_eq!(decryptor.buffer_len, 16, "The last block should be buffered");
+        assert_eq!(decryptor.buffer.as_ref(), &C1, "The buffered block should be the last ciphertext block");
+    }
+
+    #[test]
+    fn cbc_decrypt_update_with_partial_remainder() {
+        // A test to confirm correct handling when input is NOT block-aligned.
+        let key = Aes128Key::from(KEY);
+        let mut decryptor = CbcDecryptor::<Aes128, Pkcs7>::new(&key, &IV.into());
+
+        let mut ciphertext = [C1, C2].concat();
+        ciphertext.extend_from_slice(&C1[..8]); // 2.5 blocks of input
+        let expected_plaintext = [P1, P2].concat(); // Expect 2 blocks of output
+        let mut output = [0u8; 32];
+
+        let written = decryptor.update(&ciphertext, &mut output).unwrap();
+
+        assert_eq!(written, 32, "Should have processed the first two blocks");
+        assert_eq!(&output[..written], &expected_plaintext, "Plaintext of first two blocks is incorrect");
+        assert_eq!(decryptor.buffer_len, 8, "The partial remainder should be buffered");
+        assert_eq!(&decryptor.buffer.as_ref()[..8], &C1[..8]);
+    }
+
+    #[test]
+    fn cbc_decrypt_multi_step_update() {
+        // A test that simulates multiple calls to update.
+        let key = Aes128Key::from(KEY);
+        let mut decryptor = CbcDecryptor::<Aes128, Pkcs7>::new(&key, &IV.into());
+        let mut output = [0u8; 32];
+
+        // Step 1: Feed first 10 bytes of C1. Should buffer, write nothing.
+        let written1 = decryptor.update(&C1[..10], &mut output).unwrap();
+        assert_eq!(written1, 0);
+        assert_eq!(decryptor.buffer_len, 10);
+
+        // Step 2: Feed the rest of C1 and all of C2.
+        // Input is 6 bytes from C1 + 16 bytes from C2 = 22 bytes.
+        // This should complete and process C1, but buffer C2.
+        let mut next_input = Vec::new();
+        next_input.extend_from_slice(&C1[10..]);
+        next_input.extend_from_slice(&C2);
+
+        let written2 = decryptor.update(&next_input, &mut output).unwrap();
+        assert_eq!(written2, 16, "Should have processed only the completed C1 block");
+        assert_eq!(&output[..16], &P1, "Plaintext of block 1 is incorrect");
+        assert_eq!(decryptor.buffer_len, 16, "The second full block (C2) should be buffered");
+        assert_eq!(decryptor.buffer.as_ref(), &C2);
     }
 }
