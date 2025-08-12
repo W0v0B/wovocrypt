@@ -104,38 +104,19 @@ impl<C: BlockCipher, P: Padding> SymcEncryptor for CbcEncryptor<C, P> {
     }
 
     fn finalize(self, output: &mut [u8]) -> Result<usize, crate::error::SymcError> {
-        if self.buffer_len < C::BLOCK_SIZE {
-            let mut final_blocks: C::Block = Default::default();
-            let padded_len = P::pad(&self.buffer.as_ref()[..self.buffer_len], final_blocks.as_mut(), C::BLOCK_SIZE)?;
-            final_blocks.as_mut().iter_mut()
-                .zip(self.iv.as_ref().iter())
-                .for_each(|(b, p)| *b ^= p);
-            self.cipher.encrypt_block(&mut final_blocks);
-            output[..C::BLOCK_SIZE].copy_from_slice(final_blocks.as_ref());
-
-            Ok(padded_len)
-        } else {
-            let mut final_blocks: C::Block = Default::default();
-            let padded_len = P::pad(&self.buffer.as_ref()[..self.buffer_len], output, C::BLOCK_SIZE)?;
-
-            // first block
-            final_blocks.as_mut().copy_from_slice(&output[..C::BLOCK_SIZE]);
-            final_blocks.as_mut().iter_mut()
-                .zip(self.iv.as_ref().iter())
-                .for_each(|(b, p)| *b ^= p);
-            self.cipher.encrypt_block(&mut final_blocks);
-            output[..C::BLOCK_SIZE].copy_from_slice(final_blocks.as_ref());
-
-            // second block
-            final_blocks.as_mut().copy_from_slice(&output[C::BLOCK_SIZE..(2 * C::BLOCK_SIZE)]);
-            final_blocks.as_mut().iter_mut()
-                .zip(output[..C::BLOCK_SIZE].iter())
-                .for_each(|(b, p)| *b ^= p);
-            self.cipher.encrypt_block(&mut final_blocks);
-            output[C::BLOCK_SIZE..(2 * C::BLOCK_SIZE)].copy_from_slice(final_blocks.as_ref());
-
-            Ok(padded_len)
+        if output.len() < C::BLOCK_SIZE {
+            return Err(crate::error::SymcError::BufferTooSmall);
         }
+
+        let mut final_blocks: C::Block = Default::default();
+        let padded_len = P::pad(&self.buffer.as_ref()[..self.buffer_len], final_blocks.as_mut(), C::BLOCK_SIZE)?;
+        final_blocks.as_mut().iter_mut()
+            .zip(self.iv.as_ref().iter())
+            .for_each(|(b, p)| *b ^= p);
+        self.cipher.encrypt_block(&mut final_blocks);
+        output[..C::BLOCK_SIZE].copy_from_slice(final_blocks.as_ref());
+
+        Ok(padded_len)
     }
     
     fn reset(&mut self, iv: &Self::IV) {
@@ -214,7 +195,7 @@ impl<C: BlockCipher, P: Padding> SymcDecryptor for CbcDecryptor<C, P> {
         }
 
         // 拷贝剩下的 tail，tail_len 一定小于或等于 16 字节
-        self.buffer.as_mut().copy_from_slice(&input[(remaining + head_len)..]);
+        self.buffer.as_mut()[..tail_len].copy_from_slice(&input[(remaining + head_len)..]);
         self.buffer_len = tail_len;
 
         Ok(written)
@@ -310,7 +291,12 @@ mod tests {
         }
 
         #[test]
-        fn cbc_finalize_partial_block() {
+        fn cbc_encrypt_finalize() {
+            let expected_final_block: [u8; 16] = [
+                0x67, 0x11, 0x4e, 0x5e, 0x43, 0xd8, 0x37, 0x8e,
+                0x2a, 0xf3, 0x29, 0x6f, 0x65, 0x4e, 0x4c, 0xbf
+            ];
+
             let key = Aes128Key::from(KEY);
             let mut encryptor = CbcEncryptor::<Aes128, Pkcs7>::new(&key, &C1.into());
             
@@ -320,55 +306,23 @@ mod tests {
             let mut output = [0u8; 16];
             let written = encryptor.finalize(&mut output).unwrap();
 
-            assert_eq!(written, 16);
-
-            let expected_final_block: [u8; 16] = [
-                0x67, 0x11, 0x4e, 0x5e, 0x43, 0xd8, 0x37, 0x8e,
-                0x2a, 0xf3, 0x29, 0x6f, 0x65, 0x4e, 0x4c, 0xbf
-            ];
-            assert_eq!(&output[..16], &expected_final_block);
+            assert_eq!(written, expected_final_block.len());
+            assert_eq!(&output, &expected_final_block);
         }
 
         #[test]
-        fn cbc_finalize_two_blocks() {
-            let key = Aes128Key::from(KEY);
-            let mut encryptor = CbcEncryptor::<Aes128, Pkcs7>::new(&key, &IV.into());
-            encryptor.buffer.as_mut().copy_from_slice(&P1);
-            encryptor.buffer_len = 16;
-            
-            let mut output = [0u8; 32];
-            let written = encryptor.finalize(&mut output).unwrap();
-
-            assert_eq!(written, 32);
-            // The first block should be C1
-            assert_eq!(&output[..16], &C1);
-            // The second block should be a full padding block, chained with C1
-            // We need an expected value for this. Let's calculate it.
-            let mut expected_pad_block = [16u8; 16];
-            expected_pad_block.iter_mut().zip(C1.iter()).for_each(|(b, p)| *b ^= p);
-            let cipher = Aes128::new(&key);
-            cipher.encrypt_block(&mut expected_pad_block);
-            
-            assert_eq!(&output[16..32], &expected_pad_block);
-        }
-
-        #[test]
-        fn cbc_finalize_empty_buffer() {
-            // 测试 finalize 处理空 buffer 的情况 (需要添加一个新块)
+        fn cbc_encrypt_finalize_empty_buffer() {
             let key = Aes128Key::from(KEY);
             let mut encryptor = CbcEncryptor::<Aes128, Pkcs7>::new(&key, &IV.into());
             
             let mut output = [0u8; 32];
-            // 1. 先 update 一个完整的块
             let written1 = encryptor.update(&P1, &mut output).unwrap();
-            assert_eq!(written1, 16);
-            assert_eq!(&output[..16], &C1);
+            assert_eq!(written1, C1.len());
+            assert_eq!(&output[..C1.len()], &C1);
 
-            // 2. 此刻 buffer_len 应该是 0，直接 finalize
-            let written2 = encryptor.finalize(&mut output[16..]).unwrap();
-            assert_eq!(written2, 16); // 应该输出一个完整的填充块
+            let written2 = encryptor.finalize(&mut output[C1.len()..]).unwrap();
+            assert_eq!(written2, Aes128::BLOCK_SIZE);
 
-            // 预期结果：一个全是由 0x10 填充的块，与 C1 链接后加密的结果
             let mut expected_pad_block = [16u8; 16];
             expected_pad_block.iter_mut()
                 .zip(C1.iter())
@@ -376,7 +330,73 @@ mod tests {
             let cipher = Aes128::new(&key);
             cipher.encrypt_block(&mut expected_pad_block);
             
-            assert_eq!(&output[16..32], &expected_pad_block);
+            assert_eq!(&output[C1.len()..], &expected_pad_block);
+        }
+    }
+
+    mod decryptor_tests {
+        use super::*;
+
+        #[test]
+        fn cbc_decrypt_update() {
+            let key = Aes128Key::from(KEY);
+            let mut decryptor = CbcDecryptor::<Aes128, Pkcs7>::new(&key, &IV.into());
+            let mut output = [0u8; (C1.len() + C2.len())];
+
+            let written1 = decryptor.update(&C1, &mut output).unwrap();
+            assert_eq!(written1, 0);
+            assert_eq!(decryptor.buffer, C1);
+            assert_eq!(decryptor.buffer_len, C1.len());
+
+            let written2 = decryptor.update(&C2[..(C2.len() / 2)], &mut output).unwrap();
+            assert_eq!(written2, P1.len());
+            assert_eq!(decryptor.buffer[..(C2.len() / 2)], C2[..(C2.len() / 2)]);
+            assert_eq!(decryptor.buffer_len, (C2.len() / 2));
+            assert_eq!(output[..P1.len()], P1);
+
+            let written3 = decryptor.update(&C2[(C2.len() / 2)..], &mut output).unwrap();
+            assert_eq!(written3, 0);
+            assert_eq!(decryptor.buffer_len, C2.len());
+            assert_eq!(decryptor.buffer, C2);
+        }
+
+        #[test]
+        fn cbc_decrypt_finalize() {
+            let c1_iv_p2_10_byte_encrypt: [u8; 16] = [
+                0x67, 0x11, 0x4e, 0x5e, 0x43, 0xd8, 0x37, 0x8e,
+                0x2a, 0xf3, 0x29, 0x6f, 0x65, 0x4e, 0x4c, 0xbf
+            ];
+            
+            let key = Aes128Key::from(KEY);
+            let mut decryptor = CbcDecryptor::<Aes128, Pkcs7>::new(&key, &C1.into());
+            let mut output = [0u8; 10];
+
+            let written1 = decryptor.update(&c1_iv_p2_10_byte_encrypt, &mut output).unwrap();
+            assert_eq!(written1, 0);
+            assert_eq!(decryptor.buffer_len, c1_iv_p2_10_byte_encrypt.len());
+
+            let written2 = decryptor.finalize(&mut output).unwrap();
+            assert_eq!(written2, output.len());
+            assert_eq!(output, P2[0..10]);
+        }
+
+        #[test]
+        fn cbc_decrypt_finalize_pad_16_block() {
+            let pad_16_encrypt_block: [u8; 16] = [
+                0xc8, 0x4a, 0xf0, 0xb6, 0x13, 0x43, 0x5d, 0x5d,
+                0x91, 0x82, 0x80, 0x1a, 0x9b, 0xd9, 0x32, 0x0b
+            ];
+
+            let key = Aes128Key::from(KEY);
+            let mut decryptor = CbcDecryptor::<Aes128, Pkcs7>::new(&key, &IV.into());
+            let mut output = [0u8; 16];
+
+            let written1 = decryptor.update(&pad_16_encrypt_block, &mut output).unwrap();
+            assert_eq!(written1, 0);
+            assert_eq!(decryptor.buffer_len, pad_16_encrypt_block.len());
+
+            let written2 = decryptor.finalize(&mut output).unwrap();
+            assert_eq!(written2, 0);
         }
     }
 }
