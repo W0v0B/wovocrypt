@@ -1,7 +1,7 @@
 use crate::error::SymcError;
 use zeroize::Zeroize;
 
-mod cbc;
+pub mod cbc;
 
 pub trait SymcEncryptor: Sized + Clone {
     type Key: AsRef<[u8]> + Default + Clone + Zeroize;
@@ -55,7 +55,4 @@ pub trait SymcDecryptor: Sized + Clone {
         self.reset(iv);
         Ok(written)
     }
-}
-
-pub mod prelude {
 }

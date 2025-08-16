@@ -9,7 +9,7 @@ default = ["std", "all-alg"]
 # --- std/alloc/all-alg ---
 std = ["alloc"]
 alloc = []
-all-alg = ["all-hash", "all-mac", "all-aes"]
+all-alg = ["all-hash", "all-mac"]
 
 # --- Hash ---
 all-hash = ["sha224", "sha256", "sha384", "sha512"]
@@ -17,12 +17,6 @@ sha224 = []
 sha256 = []
 sha384 = []
 sha512 = []
-
-# --- aes ---
-all-aes = ["aes128", "aes192", "aes256"]
-aes128 = []
-aes192 = []
-aes256 = []
 
 # --- Mac ---
 all-mac = ["hmac"]

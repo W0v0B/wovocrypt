@@ -1,6 +1,5 @@
 use zeroize::Zeroize;
 
-#[cfg(any(feature = "aes128", feature = "aes192", feature = "aes256"))]
 pub mod aes;
 
 pub mod mode;

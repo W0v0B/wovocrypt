@@ -104,17 +104,17 @@ impl<C: BlockCipher, P: Padding> SymcEncryptor for CbcEncryptor<C, P> {
     }
 
     fn finalize(self, output: &mut [u8]) -> Result<usize, crate::error::SymcError> {
-        if output.len() < C::BLOCK_SIZE {
-            return Err(crate::error::SymcError::BufferTooSmall);
-        }
-
         let mut final_blocks: C::Block = Default::default();
         let padded_len = P::pad(&self.buffer.as_ref()[..self.buffer_len], final_blocks.as_mut(), C::BLOCK_SIZE)?;
         final_blocks.as_mut().iter_mut()
             .zip(self.iv.as_ref().iter())
             .for_each(|(b, p)| *b ^= p);
         self.cipher.encrypt_block(&mut final_blocks);
-        output[..C::BLOCK_SIZE].copy_from_slice(final_blocks.as_ref());
+
+        if output.len() < padded_len {
+            return Err(crate::error::SymcError::BufferTooSmall);
+        }
+        output[..padded_len].copy_from_slice(&final_blocks.as_ref()[..padded_len]);
 
         Ok(padded_len)
     }
@@ -233,7 +233,7 @@ impl<C: BlockCipher, P: Padding> SymcDecryptor for CbcDecryptor<C, P> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{cipher::aes::prelude::{Aes128, Aes128Key}, padding::pkcs7::Pkcs7};
+    use crate::{cipher::aes::{Aes128, Aes128Key}, padding::Pkcs7};
 
     /// Test vector from NIST SP 800-38A, Appendix F.2.1
     const KEY: [u8; 16] = [
