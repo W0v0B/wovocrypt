@@ -253,3 +253,103 @@ fn aes256_cbc_pkcs7_roundtrip() {
         assert_eq!(&out_plaintext[..decrypt_written], data.plaintext);
     }
 }
+
+#[test]
+fn test_cbc_stress_nopadding() {
+    // Stress test multiple iterations across AES-128/192/256 with NoPadding.
+    // Uses fixed-size 16-byte blocks so NoPadding is safe.
+    for i in 0..1000 {
+        let block = [((i & 0xff) as u8); 16];
+        let plaintext = &block[..];
+
+        let mut out_ciphertext = [0u8; 64];
+        match i % 3 {
+            0 => {
+                let mut encryptor = CbcEncryptor::<Aes128, NoPadding>::new(&KEY_128.into(), &IV.into());
+                let mut written = encryptor.update(plaintext, &mut out_ciphertext).expect("enc update");
+                written += encryptor.finalize(&mut out_ciphertext[written..plaintext.len()]).expect("enc finalize");
+
+                let mut out_plaintext = [0u8; 64];
+                let mut decryptor = CbcDecryptor::<Aes128, NoPadding>::new(&KEY_128.into(), &IV.into());
+                let mut dwritten = decryptor.update(&out_ciphertext[..written], &mut out_plaintext).expect("dec update");
+                dwritten += decryptor.finalize(&mut out_plaintext[dwritten..plaintext.len()]).expect("dec finalize");
+                assert_eq!(&out_plaintext[..dwritten], plaintext);
+            }
+            1 => {
+                let mut encryptor = CbcEncryptor::<Aes192, NoPadding>::new(&KEY_192.into(), &IV.into());
+                let mut written = encryptor.update(plaintext, &mut out_ciphertext).expect("enc update");
+                written += encryptor.finalize(&mut out_ciphertext[written..plaintext.len()]).expect("enc finalize");
+
+                let mut out_plaintext = [0u8; 64];
+                let mut decryptor = CbcDecryptor::<Aes192, NoPadding>::new(&KEY_192.into(), &IV.into());
+                let mut dwritten = decryptor.update(&out_ciphertext[..written], &mut out_plaintext).expect("dec update");
+                dwritten += decryptor.finalize(&mut out_plaintext[dwritten..plaintext.len()]).expect("dec finalize");
+                assert_eq!(&out_plaintext[..dwritten], plaintext);
+            }
+            _ => {
+                let mut encryptor = CbcEncryptor::<Aes256, NoPadding>::new(&KEY_256.into(), &IV.into());
+                let mut written = encryptor.update(plaintext, &mut out_ciphertext).expect("enc update");
+                written += encryptor.finalize(&mut out_ciphertext[written..plaintext.len()]).expect("enc finalize");
+
+                let mut out_plaintext = [0u8; 64];
+                let mut decryptor = CbcDecryptor::<Aes256, NoPadding>::new(&KEY_256.into(), &IV.into());
+                let mut dwritten = decryptor.update(&out_ciphertext[..written], &mut out_plaintext).expect("dec update");
+                dwritten += decryptor.finalize(&mut out_plaintext[dwritten..plaintext.len()]).expect("dec finalize");
+                assert_eq!(&out_plaintext[..dwritten], plaintext);
+            }
+        }
+    }
+}
+
+#[test]
+fn test_cbc_stress_pkcs7() {
+    // Stress test PKCS7 padding with variable-length messages and multiple key sizes.
+    let samples: &[&[u8]] = &[
+        b"a",
+        b"hello",
+        b"The quick brown fox jumps over the lazy dog",
+        b"0123456789abcdef",
+        b"0123456789abcdef0123",
+    ];
+
+    for i in 0..1000 {
+        let msg = samples[i % samples.len()];
+        let mut out_ciphertext = [0u8; 256];
+
+        match i % 3 {
+            0 => {
+                let mut encryptor = CbcEncryptor::<Aes128, Pkcs7>::new(&KEY_128.into(), &IV.into());
+                let mut written = encryptor.update(msg, &mut out_ciphertext).expect("enc update");
+                written += encryptor.finalize(&mut out_ciphertext[written..]).expect("enc finalize");
+
+                let mut out_plaintext = [0u8; 256];
+                let mut decryptor = CbcDecryptor::<Aes128, Pkcs7>::new(&KEY_128.into(), &IV.into());
+                let mut dwritten = decryptor.update(&out_ciphertext[..written], &mut out_plaintext).expect("dec update");
+                dwritten += decryptor.finalize(&mut out_plaintext[dwritten..msg.len()]).expect("dec finalize");
+                assert_eq!(&out_plaintext[..dwritten], msg);
+            }
+            1 => {
+                let mut encryptor = CbcEncryptor::<Aes192, Pkcs7>::new(&KEY_192.into(), &IV.into());
+                let mut written = encryptor.update(msg, &mut out_ciphertext).expect("enc update");
+                written += encryptor.finalize(&mut out_ciphertext[written..]).expect("enc finalize");
+
+                let mut out_plaintext = [0u8; 256];
+                let mut decryptor = CbcDecryptor::<Aes192, Pkcs7>::new(&KEY_192.into(), &IV.into());
+                let mut dwritten = decryptor.update(&out_ciphertext[..written], &mut out_plaintext).expect("dec update");
+                dwritten += decryptor.finalize(&mut out_plaintext[dwritten..msg.len()]).expect("dec finalize");
+                assert_eq!(&out_plaintext[..dwritten], msg);
+            }
+            _ => {
+                let mut encryptor = CbcEncryptor::<Aes256, Pkcs7>::new(&KEY_256.into(), &IV.into());
+                let mut written = encryptor.update(msg, &mut out_ciphertext).expect("enc update");
+                written += encryptor.finalize(&mut out_ciphertext[written..]).expect("enc finalize");
+
+                let mut out_plaintext = [0u8; 256];
+                let mut decryptor = CbcDecryptor::<Aes256, Pkcs7>::new(&KEY_256.into(), &IV.into());
+                let mut dwritten = decryptor.update(&out_ciphertext[..written], &mut out_plaintext).expect("dec update");
+                dwritten += decryptor.finalize(&mut out_plaintext[dwritten..msg.len()]).expect("dec finalize");
+                assert_eq!(&out_plaintext[..dwritten], msg);
+            }
+        }
+    }
+}
