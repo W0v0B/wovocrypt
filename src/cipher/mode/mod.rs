@@ -2,6 +2,7 @@ use crate::error::SymcError;
 use zeroize::Zeroize;
 
 pub mod cbc;
+pub mod ctr;
 
 pub trait SymcEncryptor: Sized + Clone {
     type Key: AsRef<[u8]> + Default + Clone + Zeroize;
