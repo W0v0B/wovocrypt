@@ -1,5 +1,8 @@
 use super::*;
 
+use wovocrypt::cipher::mode::cbc::{CbcEncryptor, CbcDecryptor};
+use wovocrypt::padding::*;
+
 const KEY_128: [u8; 16] = [
     0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c,
 ];
@@ -256,8 +259,6 @@ fn aes256_cbc_pkcs7_roundtrip() {
 
 #[test]
 fn test_cbc_stress_nopadding() {
-    // Stress test multiple iterations across AES-128/192/256 with NoPadding.
-    // Uses fixed-size 16-byte blocks so NoPadding is safe.
     for i in 0..1000 {
         let block = [((i & 0xff) as u8); 16];
         let plaintext = &block[..];
